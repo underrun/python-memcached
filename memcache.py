@@ -755,7 +755,7 @@ class Client(local):
             val = "%d" % val
             # force no attempt to compress this silly string.
             min_compress_len = 0
-        elif isinstance(val, long):
+        elif not PY3 and isinstance(val, long):
             flags |= Client._FLAG_LONG
             val = "%d" % val
             # force no attempt to compress this silly string.
@@ -1005,7 +1005,10 @@ class Client(local):
         elif flags & Client._FLAG_INTEGER:
             val = int(buf)
         elif flags & Client._FLAG_LONG:
-            val = long(buf)
+            if not PY3:
+                val = long(buf)
+            else:
+                raise _Error("received _FLAG_LONG in Python%s" % sys.version)
         elif flags & Client._FLAG_PICKLE:
             try:
                 file = StringIO(buf)
@@ -1095,7 +1098,7 @@ class _Host(object):
         self.socket = None
         self.flush_on_next_connect = 0
 
-        self.buffer = ''
+        self.buffer = b'' if PY3 else ''
 
     def debuglog(self, str):
         if self.debug:
@@ -1136,7 +1139,7 @@ class _Host(object):
             self.mark_dead("connect: %s" % msg[1])
             return None
         self.socket = s
-        self.buffer = ''
+        self.buffer = b''if PY3 else ''
         if self.flush_on_next_connect:
             self.flush()
             self.flush_on_next_connect = 0
@@ -1148,11 +1151,17 @@ class _Host(object):
             self.socket = None
 
     def send_cmd(self, cmd):
-        self.socket.sendall(cmd + '\r\n')
+        if PY3:
+            self.socket.sendall((cmd + '\r\n').encode('ascii'))
+        else:
+            self.socket.sendall(cmd + '\r\n')
 
     def send_cmds(self, cmds):
         """ cmds already has trailing \r\n's applied """
-        self.socket.sendall(cmds)
+        if PY3:
+            self.socket.sendall(cmds.encode('ascii'))
+        else:
+            self.socket.sendall(cmds)
 
     def readline(self, raise_exception=False):
         """Read a line and return it.  If "raise_exception" is set,
@@ -1161,8 +1170,9 @@ class _Host(object):
         """
         buf = self.buffer
         recv = self.socket.recv
+        newline = b'\r\n' if PY3 else '\r\n'
         while True:
-            index = buf.find('\r\n')
+            index = buf.find(newline)
             if index >= 0:
                 break
             data = recv(4096)
@@ -1176,7 +1186,8 @@ class _Host(object):
 
             buf += data
         self.buffer = buf[index+2:]
-        return buf[:index]
+        retval = buf[:index].decode('ascii') if PY3 else buf[:index]
+        return retval
 
     def expect(self, text, raise_exception=False):
         line = self.readline(raise_exception)
@@ -1263,7 +1274,9 @@ if __name__ == "__main__":
 
         test_setget("a_string", "some random string")
         test_setget("an_integer", 42)
-        if test_setget("long", long(1<<30)):
+        # TODO: increase longval
+        longval = 1<<30 if PY3 else long(1<<30)
+        if test_setget("long", longval):
             print("Testing delete ...", end=' ')
             if mc.delete("long"):
                 print("OK")
