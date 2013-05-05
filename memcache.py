@@ -86,12 +86,7 @@ except ImportError:
     def decompress(val):
         raise _Error("received compressed data but I don't support compression (import error)")
 
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from StringIO import StringIO
-
-invalid_key_characters = ''.join(map(chr, range(33) + [127]))
+invalid_key_characters = ''.join(map(chr, list(range(33)) + [127]))
 
 #  Original author: Evan Martin of Danga Interactive
 __author__    = "Sean Reifschneider <jafo-memcached@tummy.com>"
@@ -1088,7 +1083,11 @@ class Client(local):
                 keylen + key_extra_len > self.server_max_key_length:
                 raise Client.MemcachedKeyLengthError("Key length is > %s"
                          % self.server_max_key_length)
-            if len(key) != len(key.translate(None, invalid_key_characters)):
+            if not PY3:
+                after_translate = key.translate(None, invalid_key_characters)
+            else:
+                after_translate = key.translate(key.maketrans('', '', invalid_key_characters))
+            if len(key) != len(after_translate):
                 raise Client.MemcachedKeyCharacterError(
                         "Control characters not allowed")
 
