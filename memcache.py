@@ -1136,7 +1136,7 @@ class _Host(object):
         self.socket = None
         self.flush_on_next_connect = 0
 
-        self.buffer = b'' if PY3 else ''
+        self.buffer = b''
 
     def debuglog(self, str):
         if self.debug:
@@ -1174,10 +1174,10 @@ class _Host(object):
             return None
         except socket.error as msg:
             if isinstance(msg, tuple): msg = msg[1]
-            self.mark_dead("connect: %s" % msg[1])
+            self.mark_dead("connect: %s" % msg)
             return None
         self.socket = s
-        self.buffer = b''if PY3 else ''
+        self.buffer = b''
         if self.flush_on_next_connect:
             self.flush()
             self.flush_on_next_connect = 0
@@ -1210,7 +1210,7 @@ class _Host(object):
         """
         buf = self.buffer
         recv = self.socket.recv
-        newline = b'\r\n' if PY3 else '\r\n'
+        newline = b'\r\n'
         while True:
             index = buf.find(newline)
             if index >= 0:
